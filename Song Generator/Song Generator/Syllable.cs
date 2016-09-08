@@ -4,45 +4,28 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-/// <summary>
-/// Author: Artur Furmańczyk
-/// </summary>
-
-namespace Engine
-{
-	/// <summary>
-	/// Konstruktor
-	/// </summary>
-	public struct Syllable
-	{
+namespace Engine {
+	public struct Syllable {
 		public AccentedPhoneme[] prefix;
 		public AccentedPhoneme vowel;
 		public AccentedPhoneme[] suffix;
 
-        private const int VowelSound = 5;   // importance of vowel sound
-        private const int VowelAccent = 1;  // importance of syllable accent
-        private const int Suffix = 7;       // importance of consonants after vowel
-        private const int Prefix = 3;       // importance of consonants before vowel
+		private const int VowelSound = 5;   // importance of vowel sound
+		private const int VowelAccent = 1;  // importance of syllable accent
+		private const int Suffix = 7;       // importance of consonants after vowel
+		private const int Prefix = 3;       // importance of consonants before vowel
 
-        public Syllable(AccentedPhoneme[] phonemes, bool ends)
-		{
-			// Tworzymy sylabę z dostarczonych fonemów
-			// Nie wykonuje się poprawnie, jeżeli nie ma dokładnie jednej samogłoski w fonemie
+		public Syllable(AccentedPhoneme[] phonemes, bool ends) {
 			int vowelIndex = -1;
 
-			for (int index = 0; index < phonemes.Length; index++)
-			{
-				if (phonemes[index].accent != Accent.Consonant)
-				{
-					// Znaleziono samogłoskę
-					// Upewniamy się, że nie mamy poprzedniej samogłoski
+			for (int index = 0; index < phonemes.Length; index++) {
+				if (phonemes[index].accent != Accent.Consonant) {
 					if (vowelIndex != -1)
 						throw new Exception("A syllable cannot have more than one vowel sound");
-                    vowelIndex = index;
+					vowelIndex = index;
 				}
 			}
 
-			// Jeżeli nie znaleźliśmy samogłoski
 			if (vowelIndex == -1)
 				throw new Exception("A syllable must have a vowel sound");
 
@@ -59,15 +42,14 @@ namespace Engine
 		}
 
 		/// <summary>
-		/// Funkcja zajmująca się Odległością Levenshteina.
-		/// https://pl.wikipedia.org/wiki/Odleg%C5%82o%C5%9B%C4%87_Levenshteina
+		/// Function computing Levenshtein distance.
+		/// https://en.wikipedia.org/wiki/Levenshtein_distance
 		/// https://en.wikipedia.org/wiki/Edit_distance
 		/// </summary>
-		/// <param name="s">1 zapis fonetyczny</param>
-		/// <param name="t">2 zapis fonetyczny</param>
-		/// <returns>Wartość odmienności (odległości) dwóch napisów względem siebie</returns>
-		private static int EditDistance(AccentedPhoneme[] s, AccentedPhoneme[] t)
-		{
+		/// <param name="s">phonetic representation of first word</param>
+		/// <param name="t">phonetic representation of second word</param>
+		/// <returns>Levenshtein distance of two the words</returns>
+		private static int EditDistance(AccentedPhoneme[] s, AccentedPhoneme[] t) {
 			int n = s.Length;
 			int m = t.Length;
 
@@ -78,34 +60,31 @@ namespace Engine
 
 			int[,] matrix = new int[n + 1, m + 1];
 
-			// Robimy coś takiego:
+			// We have a matrix like this:
 			// 0	1	2	3	4	5	⋯	m
 			// 1	0	0	0	0	0	⋯	0
 			// 2	0	0	0	0	0	⋯	0
 			// 3	0	0	0	0	0	⋯	0
 			// 4	0	0	0	0	0	⋯	0
 			// 5	0	0	0	0	0	⋯	0
-			// ⋮	⋮	⋮	⋮	⋮	⋮	⋱	0
+			// ⋮		⋮	⋮	⋮	⋮	⋮	⋱	0
 			// n	0	0	0	0	0	0	0
 			for (int i = 0; i <= n; i++)
 				matrix[i, 0] = i;
 			for (int i = 0; i <= m; i++)
 				matrix[0, i] = i;
 
-			// Teraz wypełniamy pozostałe elementy
-			for (int y = 1; y <= n; y++)
-			{
-				for (int x = 1; x <= m; x++)
-				{
+			for (int y = 1; y <= n; y++) {
+				for (int x = 1; x <= m; x++) {
 					int cost;
 					if (s[y - 1].phoneme == t[x - 1].phoneme)
 						cost = 0;
 					else
 						cost = 1;
 
-					int delete = matrix[y - 1, x] + 1;                                 // Operacja usuwania
-					int add = matrix[y, x - 1] + 1;                 // Operacja dodawania
-					int replace = matrix[y - 1, x - 1] + cost;      // Operacja zamiany
+					int delete = matrix[y - 1, x] + 1;
+					int add = matrix[y, x - 1] + 1;
+					int replace = matrix[y - 1, x - 1] + cost;
 
 					matrix[y, x] = Math.Min(Math.Min(delete, add), replace);
 				}
@@ -115,30 +94,28 @@ namespace Engine
 		}
 
 		/// <summary>
-		/// Funkcja obliczająca prawdopodobieństwo, że sylaby a oraz b się rymują
+		/// Function computing the similiarity of two syllables
 		/// </summary>
-		/// <param name="a">Sylaba 1</param>
-		/// <param name="b">Sylaba 2</param>
-		/// <returns>Prawdopodobieństwo / wynik</returns>
-		public static float Rhyme(Syllable a, Syllable b)
-		{
+		/// <param name="a">first syllable</param>
+		/// <param name="b">second syllable</param>
+		/// <returns>similiarity in range [0, 1]</returns>
+		public static float Rhyme(Syllable a, Syllable b) {
 			int pointsAvailable = 0;
 			float points = 0;
 
-			// Sprawdzamy wydźwięk sylaby
+			// Check syllable's speech sound
 			pointsAvailable += VowelSound;
 			if (a.vowel.phoneme == b.vowel.phoneme)
 				points += VowelSound;
 
-			// Sprawdzamy akcent sylaby
+			// Check syllable's accent
 			pointsAvailable += VowelAccent;
 			if (a.vowel.accent == b.vowel.accent)
 				points += VowelAccent;
 
-			// Sprawdzamy prefix
-			// Znajdujemy Odległość Levensteihna i przeliczamy ją na procent maksymalnej odległości
-			if (!((a.prefix.Length == 0) && (b.prefix.Length == 0)))
-			{
+			// Check prefix
+			// Find Levenshtein distance and compute it as fraction part of maximum distance
+			if (!((a.prefix.Length == 0) && (b.prefix.Length == 0))) {
 				pointsAvailable += Prefix;
 				int distance = EditDistance(a.prefix, b.prefix);
 				float similarity = 1 - ((float)distance / (float)(a.prefix.Length + b.prefix.Length));
@@ -152,10 +129,9 @@ namespace Engine
 				points += similarity * Prefix;
 			}
 
-			// Sprawdzamy suffix - analogicznie do powyższego
+			// Check suffix - analogously
 
-			if (!((a.suffix.Length == 0) && (b.suffix.Length == 0)))
-			{
+			if (!((a.suffix.Length == 0) && (b.suffix.Length == 0))) {
 				pointsAvailable += Suffix;
 				int distance = EditDistance(a.suffix, b.suffix);
 				float similarity = 1 - ((float)distance / (float)(a.suffix.Length + b.suffix.Length));
@@ -173,11 +149,10 @@ namespace Engine
 		}
 
 		/// <summary>
-		/// Przeciążamy metodę ToString(), aby wypisywała wyraz z podziałem na sylaby
+		/// Overridden ToString(), to print the word divided into syllables
 		/// </summary>
-		/// <returns>Zapis fonetyczny z podziałem na sylaby</returns>
-		public override string ToString()
-		{
+		/// <returns>Phonetic representation with division into syllables</returns>
+		public override string ToString() {
 			const char delim = '/';
 			string result = string.Empty;
 
@@ -189,8 +164,7 @@ namespace Engine
 			if (this.suffix.Length != 0)
 				result += delim;
 
-			for (int i = 0; i < this.suffix.Length; i++)
-			{
+			for (int i = 0; i < this.suffix.Length; i++) {
 				result += this.suffix[i].phoneme.ToString();
 				if (i != this.suffix.Length - 1)
 					result += delim;
